@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Market Matrix</title>
+  <style>
+    /* General Styling */
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #eef2f3, #8e9eab);
+    }
+
+    .container {
+      width: 95%;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    h1 {
+      text-align: center;
+      color: #4CAF50;
+      margin-bottom: 20px;
+      font-size: 2.5em;
+      text-shadow: 1px 1px 2px #555;
+    }
+
+    .search-bar {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .search-bar input {
+      padding: 10px;
+      width: 60%;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 25px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .search-bar input:focus {
+      border-color: #4CAF50;
+      outline: none;
+    }
+
+    /* Table Styling */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      overflow-x: auto;
+      display: block;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      text-align: center;
+      padding: 12px;
+      font-size: 0.95em;
+    }
+
+    th {
+      background-color: #4CAF50;
+      color: white;
+      font-weight: bold;
+      position: sticky;
+      top: 0;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+
+    tr:hover {
+      background-color: #f1f1f1;
+    }
+
+    td img {
+      max-width: 100px;
+      max-height: 40px;
+      border-radius: 4px;
+    }
+
+    /* Sentiment Styles */
+    .bullish {
+      color: #28a745;
+      font-weight: bold;
+    }
+
+    .bearish {
+      color: #dc3545;
+      font-weight: bold;
+    }
+
+    /* Loading Indicator */
+    #loading {
+      text-align: center;
+      font-size: 18px;
+      color: #555;
+      margin-top: 20px;
+      display: none;
+    }
+
+    /* Button Styling */
+    .controls {
+      text-align: center;
+      margin: 10px 0;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 16px;
+      border: none;
+      border-radius: 25px;
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Market Matrix</h1>
+    <div class="search-bar">
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="Search by Stock Symbol or Name..."
+        onkeyup="filterStocks()"
+      />
+    </div>
+    <div class="controls">
+      <button id="toggleRefresh">Pause Auto-Refresh</button>
+    </div>
+    <div id="loading">Loading data...</div>
+    <table id="stockTable">
+      <thead>
+        <tr>
+          <th>SYMBOL</th>
+          <th>Exchange + Symbol</th>
+          <th>10 Days Chart</th>
+          <th>NAME OF COMPANY</th>
+          <th>Current Price</th>
+          <th>Change</th>
+          <th>Change %</th>
+          <th>Market Cap (in Cr)</th>
+          <th>Volume</th>
+          <th>Volume Avg</th>
+          <th>Sentiment</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    let autoRefresh = true;
+
+    // Fetch and render data
+    function fetchAndRenderStockData() {
+      if (!autoRefresh) return;
+      document.getElementById("loading").style.display = "block";
+
+      // Simulating data fetch from Apps Script
+      google.script.run.withSuccessHandler(data => {
+        document.getElementById("loading").style.display = "none";
+        renderTable(data);
+      }).getStockData();
+
+      setTimeout(fetchAndRenderStockData, 10 * 60 * 1000); // Refresh every 10 minutes
+    }
+
+    // Render the table
+    function renderTable(data) {
+      const tableBody = document.getElementById("tableBody");
+      tableBody.innerHTML = "";
+
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        const columns = [
+          "SYMBOL",
+          "Exchange + Symbol",
+          "10 Days Chart",
+          "NAME OF COMPANY",
+          "Current Price",
+          "Change",
+          "Change %",
+          "Market Cap(in Cr*)",
+          "Volume",
+          "VolumeAvg"
+        ];
+
+        columns.forEach(column => {
+          const td = document.createElement("td");
+          if (column === "10 Days Chart") {
+            const img = document.createElement("img");
+            img.src = row[column];
+            img.onerror = () => (img.src = "fallback-image-url.png");
+            td.appendChild(img);
+          } else if (column === "Change %") {
+            td.textContent = parseFloat(row[column]).toFixed(2) + "%";
+          } else {
+            td.textContent = row[column] || "N/A";
+          }
+          tr.appendChild(td);
+        });
+
+        // Add Sentiment Column
+        const sentimentCell = document.createElement("td");
+        const volume = parseFloat(row["Volume"] || 0);
+        const avgVolume = parseFloat(row["VolumeAvg"] || 0);
+        if (volume > avgVolume) {
+          sentimentCell.textContent = "Bullish";
+          sentimentCell.classList.add("bullish");
+        } else {
+          sentimentCell.textContent = "Bearish";
+          sentimentCell.classList.add("bearish");
+        }
+        tr.appendChild(sentimentCell);
+
+        tableBody.appendChild(tr);
+      });
+    }
+
+    // Toggle Auto-Refresh
+    document.getElementById("toggleRefresh").addEventListener("click", () => {
+      autoRefresh = !autoRefresh;
+      document.getElementById("toggleRefresh").textContent = autoRefresh
+        ? "Pause Auto-Refresh"
+        : "Resume Auto-Refresh";
+    });
+
+    // Filter stocks by search input
+    function filterStocks() {
+      const filter = document.getElementById("searchInput").value.toLowerCase();
+      const rows = document.getElementById("tableBody").getElementsByTagName("tr");
+      Array.from(rows).forEach(row => {
+        const symbol = row.cells[0].textContent.toLowerCase();
+        const name = row.cells[3].textContent.toLowerCase();
+        row.style.display = symbol.includes(filter) || name.includes(filter) ? "" : "none";
+      });
+    }
+
+    // Initialize
+    fetchAndRenderStockData();
+  </script>
+</body>
+</html>
